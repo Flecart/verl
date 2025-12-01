@@ -646,6 +646,7 @@ class AgentLoopWorkerBase:
             non_tensor_batch["multi_modal_inputs"] = np.array(multi_modal_inputs_list, dtype=object)
 
         metrics = [input.metrics.model_dump() for input in inputs]
+        print("Metrics collected from agent loops:", metrics)
         # Collect extra fields from all inputs and convert them to np.ndarray
         extra_fields = {}
         all_keys = set(key for input_item in inputs for key in input_item.extra_fields)
