@@ -392,6 +392,8 @@ class ToolAgentLoop(AgentLoopBase):
         ) = await agent_data.interaction.generate_response(
             agent_data.request_id, agent_data.messages, **agent_data.interaction_kwargs
         )
+        
+        agent_data.metrics.update(metrics)
         agent_data.user_turns += 1
 
         add_messages: list[dict[str, Any]] = [{"role": "user", "content": interaction_responses}]
