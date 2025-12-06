@@ -1317,6 +1317,28 @@ class RayPPOTrainer:
                 metrics.update(compute_throughout_metrics(batch=batch, timing_raw=timing_raw, n_gpus=n_gpus))
                 # Note: mismatch metrics (KL, PPL, etc.) are collected at line 1179 after advantage computation
 
+                # Extract and log interaction extra_info if present
+                # Interaction extra_info is stored in non_tensor_batch with prefix "interaction_extra_info/"
+                interaction_extra_info_keys = [
+                    key for key in batch.non_tensor_batch.keys() if key.startswith("interaction_extra_info/")
+                ]
+                if interaction_extra_info_keys:
+                    interaction_metrics = {}
+                    for key in interaction_extra_info_keys:
+                        values = batch.non_tensor_batch[key]
+                        # Compute mean for numeric values, otherwise just log the key
+                        if len(values) > 0:
+                            try:
+                                # Try to convert to numeric and compute mean
+                                numeric_values = [float(v) for v in values if v is not None]
+                                if numeric_values:
+                                    interaction_metrics[key] = np.mean(numeric_values)
+                            except (ValueError, TypeError):
+                                # If not numeric, skip or log as-is
+                                pass
+                    if interaction_metrics:
+                        metrics.update(interaction_metrics)
+
                 # this is experimental and may be changed/removed in the future in favor of a general-purpose one
                 if isinstance(self.train_dataloader.sampler, AbstractCurriculumSampler):
                     self.train_dataloader.sampler.update(batch=batch)

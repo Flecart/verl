@@ -393,7 +393,20 @@ class ToolAgentLoop(AgentLoopBase):
             agent_data.request_id, agent_data.messages, **agent_data.interaction_kwargs
         )
         
+        # Update metrics (for timing/performance metrics)
         agent_data.metrics.update(metrics)
+        
+        # Store interaction extra_info in extra_fields for logging
+        # The metrics dict from generate_response contains the extra_info (4th return value)
+        # Filter out timing metrics and store the rest as interaction extra_info
+        if metrics:
+            interaction_extra_info = {}
+            for key, value in metrics.items():
+                # Store custom/interaction metrics separately from timing metrics
+                if key.startswith("custom/") or key.startswith("interaction/") or key not in agent_data.metrics.model_fields:
+                    interaction_extra_info[key] = value
+            if interaction_extra_info:
+                agent_data.extra_fields["interaction_extra_info"] = interaction_extra_info
         agent_data.user_turns += 1
 
         add_messages: list[dict[str, Any]] = [{"role": "user", "content": interaction_responses}]

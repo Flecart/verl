@@ -647,6 +647,26 @@ class AgentLoopWorkerBase:
 
         metrics = [input.metrics.model_dump() for input in inputs]
         print("Metrics collected from agent loops:", metrics)
+        
+        # Extract interaction extra_info from extra_fields if present
+        # Interaction generate_response returns (should_finalize, response, reward, extra_info)
+        # The extra_info is stored in extra_fields["interaction_extra_info"]
+        interaction_extra_infos = [input.extra_fields.get("interaction_extra_info", {}) for input in inputs]
+        
+        # Store interaction extra_info in non_tensor_batch for later logging
+        if any(interaction_extra_infos):
+            # Aggregate interaction extra_info by key
+            all_interaction_keys = set()
+            for info in interaction_extra_infos:
+                if isinstance(info, dict):
+                    all_interaction_keys.update(info.keys())
+            
+            for key in all_interaction_keys:
+                values = [info.get(key, None) if isinstance(info, dict) else None for info in interaction_extra_infos]
+                # Only store if at least one value is not None
+                if any(v is not None for v in values):
+                    non_tensor_batch[f"interaction_extra_info/{key}"] = np.array(values, dtype=object)
+        
         # Collect extra fields from all inputs and convert them to np.ndarray
         extra_fields = {}
         all_keys = set(key for input_item in inputs for key in input_item.extra_fields)
