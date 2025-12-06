@@ -233,9 +233,6 @@ class ToolAgentLoop(AgentLoopBase):
         if output.log_probs:
             agent_data.response_logprobs += output.log_probs
 
-        if output.routed_experts is not None:
-            agent_data.routed_experts = output.routed_experts
-
         # Check termination conditions
         if not ignore_termination and len(agent_data.response_mask) >= self.response_length:
             return AgentState.TERMINATED
@@ -393,20 +390,35 @@ class ToolAgentLoop(AgentLoopBase):
             agent_data.request_id, agent_data.messages, **agent_data.interaction_kwargs
         )
         
-        # Update metrics (for timing/performance metrics)
-        agent_data.metrics.update(metrics)
+        # Extract custom metrics before updating AgentLoopMetrics
+        # AgentLoopMetrics is a Pydantic model that only accepts predefined fields
+        # Custom metrics (like custom/compressed_token_len) need to be stored separately
+        interaction_extra_info = {}
+        timing_metrics = {}
+        
+        if metrics:
+            # Debug: print raw metrics from interaction
+            print(f"Raw metrics from interaction.generate_response: {metrics}")
+            for key, value in metrics.items():
+                # Check if this is a valid AgentLoopMetrics field
+                if key in agent_data.metrics.model_fields:
+                    timing_metrics[key] = value
+                else:
+                    # Store custom/interaction metrics separately
+                    interaction_extra_info[key] = value
+        
+        # Debug: print what we extracted
+        if interaction_extra_info:
+            print(f"Extracted interaction_extra_info: {interaction_extra_info}")
+        
+        # Update only timing/performance metrics in AgentLoopMetrics
+        if timing_metrics:
+            agent_data.metrics.update(timing_metrics)
         
         # Store interaction extra_info in extra_fields for logging
-        # The metrics dict from generate_response contains the extra_info (4th return value)
-        # Filter out timing metrics and store the rest as interaction extra_info
-        if metrics:
-            interaction_extra_info = {}
-            for key, value in metrics.items():
-                # Store custom/interaction metrics separately from timing metrics
-                if key.startswith("custom/") or key.startswith("interaction/") or key not in agent_data.metrics.model_fields:
-                    interaction_extra_info[key] = value
-            if interaction_extra_info:
-                agent_data.extra_fields["interaction_extra_info"] = interaction_extra_info
+        if interaction_extra_info:
+            agent_data.extra_fields["interaction_extra_info"] = interaction_extra_info
+            print(f"Stored interaction_extra_info in extra_fields: {agent_data.extra_fields.get('interaction_extra_info')}")
         agent_data.user_turns += 1
 
         add_messages: list[dict[str, Any]] = [{"role": "user", "content": interaction_responses}]
